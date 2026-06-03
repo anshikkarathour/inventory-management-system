@@ -1,0 +1,34 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.database import SessionLocal
+from app.models.customer import Customer
+from app.schemas.customer import CustomerCreate
+
+router = APIRouter()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@router.post("/customers")
+def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
+    existing = db.query(Customer).filter(Customer.email == customer.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already exists")
+
+    new_customer = Customer(**customer.dict())
+    db.add(new_customer)
+    db.commit()
+    db.refresh(new_customer)
+
+    return new_customer
+
+
+@router.get("/customers")
+def get_customers(db: Session = Depends(get_db)):
+    return db.query(Customer).all()
